@@ -1,0 +1,117 @@
+version: "3.5"
+services:
+    api_server:
+        image:  my_apache_image:latest
+        container_name: api_server
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.8  
+        ports:
+            - "8083:80" 
+        depends_on:
+            - mongo   
+        volumes:
+            - "./api:/var/www/html:rw"
+    apache_server:
+        image:  php:7.4-apache
+        container_name: apache_server
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.7      
+        ports:
+            - "8080:80"
+        volumes:
+            - "./www:/var/www/html:rw"
+    keyrock:
+        image: fiware/idm:7.6.0
+        container_name: fiware-keyrock
+        hostname: keyrock
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.5
+        depends_on:
+            - mysql-db
+        ports:
+            - '3000:3000'
+            - '443:443'
+        environment:
+            - DEBUG=idm:*
+            - IDM_DB_HOST=mysql-db
+            - IDM_HOST=http://172.18.1.5:3000
+            - IDM_PORT=3000
+            # Development use only
+            # Use Docker Secrets for Sensitive Data
+            - IDM_DB_PASS=secret
+            - IDM_DB_USER=root
+            - IDM_ADMIN_USER=admin
+            - IDM_ADMIN_EMAIL=admin@test.com
+            - IDM_ADMIN_PASS=1234
+            # If sending eMails point to any STMP server
+            - IDM_EMAIL_HOST=mailer
+            - IDM_EMAIL_PORT=25
+    mysql-db:
+        restart: always
+        image: mysql:5.7
+        hostname: mysql-db
+        container_name: db-mysql
+        expose:
+            - '3306'
+        ports:
+            - '3306:3306'
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.6
+        environment:
+            # Development use only
+            # Use Docker Secrets for Sensitive Data
+            - 'MYSQL_ROOT_PASSWORD=secret'
+            - 'MYSQL_ROOT_HOST=172.18.1.5'
+        volumes:
+            - "./~DB_vol:/var/lib/mysql:rw"          
+    phpmyadmin:
+        image: phpmyadmin
+        container_name: phpmyadmin
+        restart: always
+        ports:
+            - 8082:80
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.10
+        environment:
+            - PMA_HOST=172.18.1.6
+    pep-proxy:
+        image : fiware/pep-proxy
+        container_name: pep-proxy
+        restart: always
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.11
+        ports:
+            - "8084:80"
+        environment:
+          - PEP_PROXY_IDM_HOST=172.18.1.5
+          - PEP_PROXY_APP_HOST=172.18.1.8
+          - PEP_PROXY_APP_ID=b5263b0e-6835-4152-8662-a0e9b9f78190
+          - PEP_PROXY_USERNAME=pep_proxy_14768dd2-4120-4341-af84-fcbe358135dc
+          - PEP_PASSWORD=pep_proxy_a2cd4e17-381a-49dd-a1be-7fdc474f09d1
+          - PEP_PROXY_IDM_PORT=false
+          - PEP_PROXY_IDM_PORT=3000
+    mongo:
+        image: mongo
+        restart: always
+        container_name: mongoDB
+        ports:
+            - 1996:27017
+        networks:
+            mynet:
+                ipv4_address: 172.18.1.9
+        volumes:
+            - "./mongoDB_vol:/data/db:rw"
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: root
+            MONGO_INITDB_ROOT_PASSWORD: 1234
+networks:
+    mynet:
+        ipam:
+            config:
+                - subnet: 172.18.1.0/24            
